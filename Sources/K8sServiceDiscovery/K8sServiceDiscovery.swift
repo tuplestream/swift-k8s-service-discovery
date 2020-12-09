@@ -15,9 +15,9 @@ fileprivate extension Dictionary where Key == String, Value == String {
     var queryParameters: String {
         var parts: [String] = []
         for (key, value) in self {
-            let part = String(format: "%@=%@",
-                              String(describing: key).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)! as! CVarArg,
-                              String(describing: value).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)! as! CVarArg)
+            let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+            let encodedVal = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+            let part = "\(encodedKey!)=\(encodedVal!)"
             parts.append(part as String)
         }
         return parts.joined(separator: "&")
