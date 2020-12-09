@@ -121,12 +121,13 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
 
     public let defaultLookupTimeout: DispatchTimeInterval = .seconds(1)
 
-    private let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+    private let httpClient: HTTPClient
     private let jsonDecoder = JSONDecoder()
     private let apiHost: String
 
-    public init(apiHost: String) {
+    public init(apiHost: String, eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)) {
         self.apiHost = apiHost
+        self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
     }
 
     public func lookup(_ service: K8sObject, deadline: DispatchTime?, callback: @escaping (Result<[K8sPod], Error>) -> Void) {
