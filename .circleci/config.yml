@@ -1,0 +1,38 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: tuplestream/swift-env:latest
+    steps:
+      - checkout
+      - run: swift test
+  validate:
+    docker:
+      - image: m0wfo/tailor:0.12.0
+    steps:
+      - checkout
+      - run: tailor --format=json ~/project
+  bump_version:
+    docker:
+      - image: tuplestream/bumpversion:latest
+    steps:
+      - checkout
+      - run:
+          name: run bumpversion and push
+          command: bump
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - validate
+      - bump_version:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - build
+            - validate
