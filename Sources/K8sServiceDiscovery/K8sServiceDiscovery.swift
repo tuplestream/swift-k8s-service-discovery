@@ -33,7 +33,12 @@ fileprivate extension Dictionary where Key == String, Value == String {
 
 public struct K8sObject: Hashable {
     public var labelSelector: [String:String] = Dictionary()
-    public var namespace: String = "default"
+    public var namespace: String
+
+    public init(labelSelector: [String:String], namespace: String = "default") {
+        self.labelSelector = labelSelector
+        self.namespace = namespace
+    }
 
     var url: String {
         return "/api/v1/namespaces/\(namespace)/pods?labelSelector=\(labelSelector.urlEncoded)"
