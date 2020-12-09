@@ -4,7 +4,7 @@
  SPDX-License-Identifier: Apache-2.0
 */
 import XCTest
-@testable import K8sServiceDiscovery
+import K8sServiceDiscovery
 
 final class K8sServiceDiscoveryTests: XCTestCase {
     func testExample() {

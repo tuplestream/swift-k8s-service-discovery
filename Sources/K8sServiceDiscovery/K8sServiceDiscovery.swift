@@ -7,6 +7,7 @@ import AsyncHTTPClient
 import Dispatch
 import Foundation
 import NIO
+import NIOHTTP1
 import ServiceDiscovery
 
 fileprivate extension Dictionary where Key == String, Value == String {
@@ -120,6 +121,42 @@ fileprivate extension DispatchTime {
     }
 }
 
+public final class K8s {
+    public static var defaultServiceEndpoint: String? {
+        get {
+            guard let host = getEnv("KUBERNETES_SERVICE_HOST"), let port = getEnv("KUBERNETES_SERVICE_PORT") else {
+                return nil
+            }
+
+            var scheme = "http"
+            if port == "443" {
+                scheme = "https"
+            }
+            return "\(scheme)://\(host):\(port)"
+        }
+    }
+
+    static var bearerToken: String? {
+        get {
+            let path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+            if !FileManager().fileExists(atPath: path) {
+                return nil
+            }
+            return try! String(contentsOfFile: path)
+        }
+    }
+
+    static var runningInPod: Bool {
+        get {
+            return ProcessInfo.processInfo.environment["KUBERNETES_SERVICE_HOST"] != nil
+        }
+    }
+
+    private static func getEnv(_ key: String) -> String? {
+        return ProcessInfo.processInfo.environment[key]
+    }
+}
+
 public final class K8sServiceDiscovery: ServiceDiscovery {
     public typealias Service = K8sObject
     public typealias Instance = K8sPod
@@ -130,13 +167,17 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
     private let jsonDecoder = JSONDecoder()
     private let apiHost: String
 
+    public convenience init() {
+        self.init(apiHost: K8s.defaultServiceEndpoint!)
+    }
+
     public init(apiHost: String, eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)) {
         self.apiHost = apiHost
         self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
     }
 
     public func lookup(_ service: K8sObject, deadline: DispatchTime?, callback: @escaping (Result<[K8sPod], Error>) -> Void) {
-        httpClient.get(url: fullURL(target: service), deadline: deadline?.asNIODeadline).whenComplete { result in
+        httpClient.get(url: fullURL(service), deadline: deadline?.asNIODeadline).whenComplete { result in
             let lookupResult: Result<[Instance], Error>!
             switch result {
             case .failure:
@@ -153,13 +194,22 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    private func fullURL(target: K8sObject) -> String {
+    private func fullURL(_ target: K8sObject, watch: Bool = false) -> String {
+        if watch {
+            return apiHost + target.url + "&watch=true"
+        }
         return apiHost + target.url
     }
 
     public func subscribe(to service: K8sObject, onNext nextResultHandler: @escaping (Result<[K8sPod], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
 
-        let request = try! HTTPClient.Request(url: self.fullURL(target: service) + "&watch=true")
+        let request: HTTPClient.Request
+        if K8s.runningInPod {
+            let headers = HTTPHeaders([("Authorization", "Bearer \(K8s.bearerToken!)")])
+            request = try! HTTPClient.Request(url: self.fullURL(service, watch: true), method: .GET, headers: headers, body: nil)
+        } else {
+            request = try! HTTPClient.Request(url: self.fullURL(service, watch: true))
+        }
         let delegate = K8sStreamDelegate(decoder: self.jsonDecoder, onNext: nextResultHandler, onComplete: completionHandler)
         let future = self.httpClient.execute(request: request, delegate: delegate)
 
@@ -191,7 +241,7 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
         func didReceiveBodyPart(task: HTTPClient.Task<String>, _ buffer: ByteBuffer) -> EventLoopFuture<Void> {
             // update json objects are newline-delimited, but the contents of a buffer may contain more or less than
             // one exact message; copy to an interim buffer and read up to any occurrences of \n and only decode that,
-            // saving any remaining for the next time this is called
+            // saving any remaining bytes for the next time this is called
             var b = buffer
             interimBuffer.writeBuffer(&b)
             let readable = interimBuffer.withUnsafeReadableBytes { $0.firstIndex(of: UInt8(0x0A)) }
