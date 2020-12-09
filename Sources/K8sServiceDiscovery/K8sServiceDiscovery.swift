@@ -6,6 +6,7 @@
 import AsyncHTTPClient
 import Dispatch
 import Foundation
+import Logging
 import NIO
 import NIOHTTP1
 import ServiceDiscovery
@@ -178,7 +179,8 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
 
     public init(apiHost: String, eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)) {
         self.apiHost = apiHost
-        self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup))
+        let config = HTTPClient.Configuration(certificateVerification: .none)
+        self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup), configuration: config)
     }
 
     public func lookup(_ service: K8sObject, deadline: DispatchTime?, callback: @escaping (Result<[K8sPod], Error>) -> Void) {
@@ -230,6 +232,7 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
     class K8sStreamDelegate: HTTPClientResponseDelegate {
         typealias Response = String
 
+        private let log = Logger(label: "K8sStreamDelegate")
         private let decoder: JSONDecoder
         private let nextResultHandler: (Result<[K8sPod], Error>) -> Void
         private let completionHandler: (CompletionReason) -> Void
@@ -278,6 +281,7 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
         }
 
         func didReceiveError(task: HTTPClient.Task<String>, _ error: Error) {
+            log.error("request error from Kubernetes API server: \(error.localizedDescription)")
             completionHandler(.serviceDiscoveryUnavailable)
         }
 
