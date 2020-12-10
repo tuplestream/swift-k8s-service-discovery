@@ -51,6 +51,11 @@ public struct K8sPod: CustomStringConvertible, Hashable {
     public var name: String
     public var address: String
 
+    public init(name: String, address: String) {
+        self.name = name
+        self.address = address
+    }
+
     public var description: String {
         get {
             return "Pod[\(name) | \(address)]"
