@@ -169,8 +169,13 @@ public final class K8s {
 }
 
 public struct K8sDiscoveryConfig {
-    public var eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-    public var apiUrl = K8s.defaultServiceEndpoint
+    let eventLoopGroup: EventLoopGroup
+    let apiUrl: String
+
+    public init(eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1), apiUrl: String? = nil) {
+        self.eventLoopGroup = eventLoopGroup
+        self.apiUrl = apiUrl ?? K8s.defaultServiceEndpoint!
+    }
 }
 
 public final class K8sServiceDiscovery: ServiceDiscovery {
@@ -188,7 +193,7 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
     }
 
     public init(config: K8sDiscoveryConfig) {
-        self.apiHost = config.apiUrl!
+        self.apiHost = config.apiUrl
         let httpConfig = HTTPClient.Configuration(certificateVerification: .none)
         self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(config.eventLoopGroup), configuration: httpConfig)
     }
