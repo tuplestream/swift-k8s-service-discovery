@@ -168,6 +168,11 @@ public final class K8s {
     }
 }
 
+public struct K8sDiscoveryConfig {
+    public var eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    public var apiUrl = K8s.defaultServiceEndpoint
+}
+
 public final class K8sServiceDiscovery: ServiceDiscovery {
     public typealias Service = K8sObject
     public typealias Instance = K8sPod
@@ -179,13 +184,13 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
     private let apiHost: String
 
     public convenience init() {
-        self.init(apiHost: K8s.defaultServiceEndpoint!)
+        self.init(config: K8sDiscoveryConfig())
     }
 
-    public init(apiHost: String, eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)) {
-        self.apiHost = apiHost
-        let config = HTTPClient.Configuration(certificateVerification: .none)
-        self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(eventLoopGroup), configuration: config)
+    public init(config: K8sDiscoveryConfig) {
+        self.apiHost = config.apiUrl!
+        let httpConfig = HTTPClient.Configuration(certificateVerification: .none)
+        self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(config.eventLoopGroup), configuration: httpConfig)
     }
 
     public func lookup(_ service: K8sObject, deadline: DispatchTime?, callback: @escaping (Result<[K8sPod], Error>) -> Void) {
@@ -217,7 +222,12 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
 
         let request: HTTPClient.Request
         if K8s.runningInPod {
-            let headers = HTTPHeaders([("Authorization", "Bearer \(K8s.bearerToken!)")])
+            let headers: HTTPHeaders
+            if let token = K8s.bearerToken {
+                headers = HTTPHeaders([("Authorization", "Bearer \(token)")])
+            } else {
+                headers = HTTPHeaders()
+            }
             request = try! HTTPClient.Request(url: self.fullURL(service, watch: true), method: .GET, headers: headers, body: nil)
         } else {
             request = try! HTTPClient.Request(url: self.fullURL(service, watch: true))
@@ -249,6 +259,15 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
             self.interimBuffer = ByteBuffer()
             self.nextResultHandler = nextResultHandler
             self.completionHandler = completionHandler
+        }
+
+        func didReceiveHead(task: HTTPClient.Task<String>, _ head: HTTPResponseHead) -> EventLoopFuture<Void> {
+            if head.status.code > 399 {
+                completionHandler(.serviceDiscoveryUnavailable)
+                log.error("Error received from K8s API server: \(head.status.reasonPhrase)")
+                return task.eventLoop.makeFailedFuture(ServiceDiscoveryError.unavailable)
+            }
+            return task.eventLoop.makeSucceededFuture(())
         }
 
         func didReceiveBodyPart(task: HTTPClient.Task<String>, _ buffer: ByteBuffer) -> EventLoopFuture<Void> {
