@@ -11,6 +11,24 @@
         }
       },
       {
+        "package": "MicroExpress",
+        "repositoryURL": "https://github.com/NozeIO/MicroExpress.git",
+        "state": {
+          "branch": null,
+          "revision": "8ffbe8a446d0935b87f93a83cf92082f356bcae1",
+          "version": "0.5.3"
+        }
+      },
+      {
+        "package": "mustache",
+        "repositoryURL": "https://github.com/AlwaysRightInstitute/mustache.git",
+        "state": {
+          "branch": null,
+          "revision": "72a467f35dcbe9fb7a40b41884ae0d0821401dc3",
+          "version": "0.5.9"
+        }
+      },
+      {
         "package": "swift-log",
         "repositoryURL": "https://github.com/apple/swift-log.git",
         "state": {

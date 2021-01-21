@@ -13,6 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-service-discovery.git", .exact("0.1.0")),
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.2.0"),
+        .package(url: "https://github.com/NozeIO/MicroExpress.git", from: "0.5.3"),
     ],
     targets: [
         .target(
@@ -23,6 +24,12 @@ let package = Package(
             ]),
         .testTarget(
             name: "K8sServiceDiscoveryTests",
-            dependencies: ["K8sServiceDiscovery"]),
+            dependencies: [
+                "K8sServiceDiscovery",
+                .product(name: "MicroExpress", package: "MicroExpress"),
+            ],
+            resources: [
+                .process("listresponse.json")
+            ]),
     ]
 )
