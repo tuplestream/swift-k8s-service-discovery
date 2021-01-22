@@ -2,10 +2,11 @@ version: 2.1
 
 jobs:
   build:
-    docker:
-      - image: tuplestream/swift-env:latest
+    machine:
+      image: ubuntu-1604:202007-01
     steps:
       - checkout
+      - run: ./setup.bash
       - run: swift test
   validate:
     docker:

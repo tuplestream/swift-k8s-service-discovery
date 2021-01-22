@@ -65,6 +65,55 @@ final class K8sServiceDiscoveryTests: XCTestCase {
         try! ServiceDiscoveryBox<K8sObject, K8sPod>(sd).shutdown()
     }
 
+    func shell(_ args: String...) -> Process {
+        let task = Process()
+        task.launchPath = "/usr/bin/env"
+        task.arguments = args
+        task.launch()
+        return task
+    }
+
+    func testSubscription() {
+        let k8sManifest = Bundle.module.path(forResource: "integration", ofType: "yml")!
+        shell("kubectl", "apply", "-f", k8sManifest).waitUntilExit()
+        shell("kubectl", "rollout", "status", "deployment/nginx", "-n", "nginx").waitUntilExit()
+        let process = shell("kubectl", "proxy")
+
+        Thread.sleep(forTimeInterval: 1)
+
+        var pods = Array<K8sPod>()
+
+        let config = K8sDiscoveryConfig(apiUrl: "http://localhost:8001")
+        let sd = K8sServiceDiscovery(config: config)
+
+        sd.subscribe(to: target) { result in
+            // todo
+            switch result {
+            case .failure:
+                XCTFail("Expected successful response")
+            case .success(let instances):
+                pods.append(contentsOf: instances)
+            }
+        } onComplete: { reason in
+            // no-op
+        }
+
+        Thread.sleep(forTimeInterval: 0.5)
+
+        XCTAssertEqual(1, pods.count)
+
+        shell("kubectl", "scale", "--replicas=2", "deployment/nginx", "-n", "nginx").waitUntilExit()
+        // wait for rollout again
+        shell("kubectl", "rollout", "status", "deployment/nginx", "-n", "nginx").waitUntilExit()
+
+        Thread.sleep(forTimeInterval: 0.5)
+
+        XCTAssertEqual(2, pods.count)
+
+        sd.shutdown()
+        process.terminate()
+    }
+
     func testFixedListImpl() {
         let hosts = ["foo.cluster.local"]
         let sd = K8sServiceDiscovery.fromFixedHostList(target: target, hosts: hosts)

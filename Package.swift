@@ -29,7 +29,8 @@ let package = Package(
                 .product(name: "MicroExpress", package: "MicroExpress"),
             ],
             resources: [
-                .process("listresponse.json")
+                .process("listresponse.json"),
+                .process("integration.yml"),
             ]),
     ]
 )
