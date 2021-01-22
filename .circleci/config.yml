@@ -7,7 +7,7 @@ jobs:
     steps:
       - checkout
       - run: ./setup.bash
-      - run: swift test
+      - run: docker run -v $(pwd):/build -it swift:5.3 swift test
   validate:
     docker:
       - image: m0wfo/tailor:0.12.0
