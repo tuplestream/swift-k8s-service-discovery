@@ -24,7 +24,49 @@ dependencies: [.product(name: "K8sServiceDiscovery", package: "swift-k8s-service
 
 #### Configuring cluster permissions for your application
 
+Assuming your Kubernetes cluster has RBAC enabled, you need to give your pods sufficient permissions to look for other pods. You'll probably want to create a separate `ServiceAccount`:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-new-serviceaccount
+```
+
+Additionally you'll need a `Role` or  `ClusterRole` allowing read permissions for pod resources:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  # use a 'Role' instead if pods to be discovered live in the same namespace
+  name: discover-pods
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+```
+
+...and a `ClusterRoleBinding` to tie them together:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: watch-for-pods
+subjects:
+- kind: ServiceAccount
+  name: my-new-serviceaccount
+roleRef:
+  kind: ClusterRole
+  name: discover-pods
+  apiGroup: rbac.authorization.k8s.io
+```
+
 #### Integrating in your code
+
+
 
 #### Discovering services in a local environment
 
