@@ -64,6 +64,29 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+then in your `Deployment`, `DaemonSet` or other workload, specify the privileged service account. For example:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: nginx
+spec:
+  selector:
+    matchLabels:
+      name: nginx
+  template:
+    metadata:
+      labels:
+        name: nginx
+    spec:
+      containers:
+      - name: galaxy
+        image: nginx
+      serviceAccountName: my-new-serviceaccount
+```
+
 #### Integrating in your code
 
 Import the module and create a `K8sServiceDiscovery` instance:
@@ -74,6 +97,7 @@ import K8sServiceDiscovery
 
 // the default initializer options are for code running inside a pod.
 // use K8sServiceDiscovery.init(config: ...) for other environments, e.g. local dev
+// (see below)
 let discovery = K8sServiceDiscovery()
 ```
 
@@ -97,7 +121,7 @@ let token = sd.subscribe(to: target) { result in
 }
 ```
 
-Remember to shut down any k8s service discover instances before stopping the process, otherwise you'll get an HTTP client error:
+Remember to shut down any service discovery instances before stopping the process, otherwise you'll get an HTTP client error:
 
 ```swift
 discovery.shutdown()
