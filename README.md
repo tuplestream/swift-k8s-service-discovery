@@ -66,8 +66,59 @@ roleRef:
 
 #### Integrating in your code
 
+Import the module and create a `K8sServiceDiscovery` instance:
 
+```swift
+import K8sServiceDiscovery
+
+
+// the default initializer options are for code running inside a pod.
+// use K8sServiceDiscovery.init(config: ...) for other environments, e.g. local dev
+let discovery = K8sServiceDiscovery()
+```
+
+Then look up or subscribe to new pod updates:
+
+```swift
+// look for pods labeled name=nginx in the namespace nginx
+let target = K8sObject(labelSelector: ["name":"nginx"], namespace: "nginx")
+
+// start a subscription. NOTE: this does not block the calling thread
+let token = sd.subscribe(to: target) { result in
+    // todo
+    switch result {
+    case .failure:
+        // handle lookup error
+    case .success(let instances):
+        // do something with discovered pods
+    }
+} onComplete: { reason in
+    // something on completion
+}
+```
+
+Remember to shut down any k8s service discover instances before stopping the process, otherwise you'll get an HTTP client error:
+
+```swift
+discovery.shutdown()
+```
+
+If you need to box the serivce disovery object in `ServiceDiscoveryBox`, this package exposes a `shutdown()` function on `ServiceDiscoveryBox<K8sObject, K8sPod>`.
 
 #### Discovering services in a local environment
 
+This package supports pod discovery for local development in two ways:
 
+1) Using `kubectl proxy` and overriding the API host:
+
+```yaml
+let config = K8sDiscoveryConfig(apiUrl: "http://localhost:8001")
+let discovery = K8sServiceDiscovery(config: config)
+```
+
+2) Using a fixed list of hosts when no Kubernetes cluster is available to get a `ServiceDiscoveryBox<K8sObject, K8sPod>` instance:
+
+```yaml
+let hosts = ["some.host.name"]
+let discovery = K8sServiceDiscovery.fromFixedHostList(target: target, hosts: hosts)
+```
