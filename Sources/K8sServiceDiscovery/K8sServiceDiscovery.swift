@@ -133,6 +133,7 @@ fileprivate extension DispatchTime {
 }
 
 public final class K8s {
+
     public static var defaultServiceEndpoint: String? {
         get {
             guard let host = getEnv("KUBERNETES_SERVICE_HOST"), let port = getEnv("KUBERNETES_SERVICE_PORT") else {
@@ -172,8 +173,8 @@ public struct K8sDiscoveryConfig {
     let eventLoopGroup: EventLoopGroup
     let apiUrl: String
 
-    public init(eventLoopGroup: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1), apiUrl: String? = nil) {
-        self.eventLoopGroup = eventLoopGroup
+    public init(eventLoopGroup: EventLoopGroup? = nil, apiUrl: String? = nil) {
+        self.eventLoopGroup = eventLoopGroup ?? MultiThreadedEventLoopGroup(numberOfThreads: 1)
         self.apiUrl = apiUrl ?? K8s.defaultServiceEndpoint!
     }
 }
@@ -198,8 +199,32 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
         self.httpClient = HTTPClient(eventLoopGroupProvider: .shared(config.eventLoopGroup), configuration: httpConfig)
     }
 
+    private func fullURL(_ target: K8sObject, watch: Bool = false) -> String {
+        if watch {
+            return apiHost + target.url + "&watch=true"
+        }
+        return apiHost + target.url
+    }
+
+    private func request(_ service: K8sObject, watch: Bool) -> HTTPClient.Request {
+        let request: HTTPClient.Request
+        if K8s.runningInPod {
+            let headers: HTTPHeaders
+            if let token = K8s.bearerToken {
+                headers = HTTPHeaders([("Authorization", "Bearer \(token)")])
+            } else {
+                headers = HTTPHeaders()
+            }
+            request = try! HTTPClient.Request(url: fullURL(service, watch: watch), method: .GET, headers: headers, body: nil)
+        } else {
+            request = try! HTTPClient.Request(url: fullURL(service, watch: watch))
+        }
+        return request
+    }
+
     public func lookup(_ service: K8sObject, deadline: DispatchTime?, callback: @escaping (Result<[K8sPod], Error>) -> Void) {
-        httpClient.get(url: fullURL(service), deadline: deadline?.asNIODeadline).whenComplete { result in
+        let req = request(service, watch: false)
+        httpClient.execute(request: req).whenComplete { result in
             let lookupResult: Result<[Instance], Error>!
             switch result {
             case .failure:
@@ -216,29 +241,10 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
         }
     }
 
-    private func fullURL(_ target: K8sObject, watch: Bool = false) -> String {
-        if watch {
-            return apiHost + target.url + "&watch=true"
-        }
-        return apiHost + target.url
-    }
-
     public func subscribe(to service: K8sObject, onNext nextResultHandler: @escaping (Result<[K8sPod], Error>) -> Void, onComplete completionHandler: @escaping (CompletionReason) -> Void) -> CancellationToken {
 
-        let request: HTTPClient.Request
-        if K8s.runningInPod {
-            let headers: HTTPHeaders
-            if let token = K8s.bearerToken {
-                headers = HTTPHeaders([("Authorization", "Bearer \(token)")])
-            } else {
-                headers = HTTPHeaders()
-            }
-            request = try! HTTPClient.Request(url: self.fullURL(service, watch: true), method: .GET, headers: headers, body: nil)
-        } else {
-            request = try! HTTPClient.Request(url: self.fullURL(service, watch: true))
-        }
         let delegate = K8sStreamDelegate(decoder: self.jsonDecoder, onNext: nextResultHandler, onComplete: completionHandler)
-        let future = self.httpClient.execute(request: request, delegate: delegate)
+        let future = self.httpClient.execute(request: self.request(service, watch: true), delegate: delegate)
 
         return CancellationToken(isCancelled: false) { _ in
             future.cancel()
@@ -318,5 +324,29 @@ public final class K8sServiceDiscovery: ServiceDiscovery {
             completionHandler(.serviceDiscoveryUnavailable)
             return ""
         }
+    }
+}
+
+public extension ServiceDiscoveryBox where Service == K8sObject, Instance == K8sPod {
+
+    func shutdown() throws {
+        do {
+            let k8s = try self.unwrapAs(K8sServiceDiscovery.self)
+            k8s.shutdown()
+        } catch TypeErasedServiceDiscoveryError.typeMismatch {
+            // boxed type isn't the real impl, shutdown is a no-op in this case
+        } catch {
+            // unknown error, rethrow
+            throw error
+        }
+    }
+}
+
+public extension K8sServiceDiscovery {
+
+    static func fromFixedHostList<C: Collection>(target: K8sObject, hosts: C) -> ServiceDiscoveryBox<K8sObject, K8sPod> where C.Element == String {
+        let pods = hosts.map({ K8sPod(name: $0, address: $0) })
+        let discovery = InMemoryServiceDiscovery<K8sObject, K8sPod>(configuration: InMemoryServiceDiscovery<K8sObject, K8sPod>.Configuration(serviceInstances: [target: pods]))
+        return ServiceDiscoveryBox<K8sObject, K8sPod>(discovery)
     }
 }
