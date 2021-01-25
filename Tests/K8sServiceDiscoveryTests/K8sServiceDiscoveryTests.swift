@@ -74,6 +74,10 @@ final class K8sServiceDiscoveryTests: XCTestCase {
     }
 
     func testSubscription() {
+        guard let _ = ProcessInfo.processInfo.environment["RUN_INTEGRATION_TESTS"] else {
+            return
+        }
+
         let k8sManifest = Bundle.module.path(forResource: "integration", ofType: "yml")!
         shell("kubectl", "apply", "-f", k8sManifest).waitUntilExit()
         shell("kubectl", "rollout", "status", "deployment/nginx", "-n", "nginx").waitUntilExit()
@@ -86,7 +90,7 @@ final class K8sServiceDiscoveryTests: XCTestCase {
         let config = K8sDiscoveryConfig(apiUrl: "http://localhost:8001")
         let sd = K8sServiceDiscovery(config: config)
 
-        sd.subscribe(to: target) { result in
+        let _ = sd.subscribe(to: target) { result in
             // todo
             switch result {
             case .failure:

@@ -2,12 +2,11 @@ version: 2.1
 
 jobs:
   build:
-    machine:
-      image: ubuntu-1604:202007-01
+    docker:
+      - image: tuplestream/swift-env:latest
     steps:
       - checkout
-      - run: ./setup.bash
-      - run: docker run -v $(pwd):/build -it swift:5.3 swift test
+      - run: swift test
   validate:
     docker:
       - image: m0wfo/tailor:0.12.0
