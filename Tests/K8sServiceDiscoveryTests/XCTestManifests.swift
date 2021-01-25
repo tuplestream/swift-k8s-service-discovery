@@ -8,6 +8,7 @@ extension K8sServiceDiscoveryTests {
     static let __allTests__K8sServiceDiscoveryTests = [
         ("testFixedListImpl", testFixedListImpl),
         ("testOneShotLookup", testOneShotLookup),
+        ("testSubscription", testSubscription),
     ]
 }
 

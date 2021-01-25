@@ -1,5 +1,5 @@
 /*
- Copyright 2020 TupleStream OÜ
+ Copyright 2021 TupleStream OÜ
  See the LICENSE file for license information
  SPDX-License-Identifier: Apache-2.0
 */
