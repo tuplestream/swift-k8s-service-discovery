@@ -67,9 +67,9 @@ final class K8sServiceDiscoveryTests: XCTestCase {
 
     func shell(_ args: String...) -> Process {
         let task = Process()
-        task.launchPath = "/usr/bin/env"
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         task.arguments = args
-        task.launch()
+        try! task.run()
         return task
     }
 
