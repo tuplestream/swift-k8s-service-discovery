@@ -82,7 +82,7 @@ spec:
         name: nginx
     spec:
       containers:
-      - name: galaxy
+      - name: nginx
         image: nginx
       serviceAccountName: my-new-serviceaccount
 ```
