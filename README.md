@@ -135,14 +135,14 @@ This package supports pod discovery for local development in two ways:
 
 1) Using `kubectl proxy` and overriding the API host:
 
-```yaml
+```swift
 let config = K8sDiscoveryConfig(apiUrl: "http://localhost:8001")
 let discovery = K8sServiceDiscovery(config: config)
 ```
 
 2) Using a fixed list of hosts when no Kubernetes cluster is available to get a `ServiceDiscoveryBox<K8sObject, K8sPod>` instance:
 
-```yaml
+```swift
 let hosts = ["some.host.name"]
 let discovery = K8sServiceDiscovery.fromFixedHostList(target: target, hosts: hosts)
 ```
