@@ -11,7 +11,7 @@ let package = Package(
             targets: ["K8sServiceDiscovery"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-service-discovery.git", .exact("0.1.0")),
+        .package(url: "https://github.com/apple/swift-service-discovery.git", from: "1.0.0"),
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.2.0"),
         .package(url: "https://github.com/NozeIO/MicroExpress.git", from: "0.5.3"),
     ],

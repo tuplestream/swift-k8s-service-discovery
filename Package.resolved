@@ -78,8 +78,8 @@
         "repositoryURL": "https://github.com/apple/swift-service-discovery.git",
         "state": {
           "branch": null,
-          "revision": "d322ffea2c22a6e80257475893a7c8e160b9cfe3",
-          "version": "0.1.0"
+          "revision": "fcf03632e5dc098dc433ffdcf93b42c9b6321968",
+          "version": "1.0.0"
         }
       }
     ]
